@@ -75,25 +75,38 @@
     #locationButton, #simulateButton, #simulateHereButton {
       position: fixed;
       top: 20px;
-      padding: 10px 20px;
+      padding: 12px 24px;
       color: white;
       border: none;
-      border-radius: 5px;
+      border-radius: 25px;
       cursor: pointer;
       z-index: 1000;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      transition: all 0.3 ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     #locationButton {
-      right: 20px;
+      right: 200px;
       background-color: #4CAF50;
     }
     #simulateButton {
-      right: 160px;
+      right: 380px;
       background-color: #ff9800;
     }
     #simulateHereButton {
-      right: 350px;
+      right: 620px;
       background-color: #e91e63;
     }
+
+    #locationButton:hover, #simulateButton:hover, #simulateHereButton:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+    
     .accident-marker {
       width: 20px;
       height: 20px;

@@ -279,8 +279,8 @@ Promise.all([readAccidentsData(), readHospitalsData()])
           const accidentDistance = calculateDistance(
             hospital.latitude,
             hospital.longitude,
-            12.9716,
-            77.5946
+            17.5449,
+            78.5718
           );
 
           return {
