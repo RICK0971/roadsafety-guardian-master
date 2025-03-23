@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>RoadSafety-Guardian</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.10.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.10.0/mapbox-gl.js"></script>
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    #sosButton {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 15px 30px;
+      background-color: #ff4444;
+      color: white;
+      border: none;
+      border-radius: 25px;
+      font-size: 18px;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+      display: block;
+    }
+    #statusMessage {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      z-index: 1000;
+      display: none;
+      transition: all 0.3s ease;
+    }
+    .hospital-marker {
+      width: 20px;
+      height: 20px;
+      background-color: #4CAF50;
+      border: 2px solid white;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      transition: all 0.3s ease;
+    }
+    .hospital-marker:hover {
+      transform: scale(1.2);
+      box-shadow: 0 0 15px rgba(0,0,0,0.4);
+    }
+    .hospital-popup {
+      padding: 10px;
+      max-width: 300px;
+    }
+    .hospital-popup h3 {
+      margin: 0 0 10px 0;
+      color: #333;
+    }
+    .hospital-popup p {
+      margin: 5px 0;
+      color: #666;
+    }
+    .hospital-popup button {
+      width: 100%;
+      margin-top: 10px;
+      transition: all 0.3s ease;
+    }
+    .hospital-popup button:hover {
+      transform: scale(1.05);
+    }
+    #locationButton, #simulateButton, #simulateHereButton {
+      position: fixed;
+      top: 20px;
+      padding: 10px 20px;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      z-index: 1000;
+    }
+    #locationButton {
+      right: 20px;
+      background-color: #4CAF50;
+    }
+    #simulateButton {
+      right: 160px;
+      background-color: #ff9800;
+    }
+    #simulateHereButton {
+      right: 350px;
+      background-color: #e91e63;
+    }
+    .accident-marker {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid white;
+      cursor: pointer;
+    }
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+      }
+      70% {
+        transform: scale(1.3);
+        box-shadow: 0 0 0 10px rgba(76, 175, 80, 0);
+      }
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+      }
+    }
+    .location-popup {
+      padding: 10px;
+      max-width: 200px;
+    }
+    .location-popup h3 {
+      margin: 0 0 10px 0;
+      color: #2196F3;
+    }
+    .location-popup p {
+      margin: 5px 0;
+      color: #666;
+      font-family: monospace;
+    }
+
+    /* Weather Panel Styles */
+    #weatherPanel {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background-color: rgba(255, 255, 255, 0.95);
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      z-index: 1000;
+      max-width: 300px;
+    }
+
+    .weather-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .weather-header h3 {
+      margin: 0;
+      color: #333;
+    }
+
+    .weather-info {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .weather-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .weather-item span {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .weather-recommendations {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #eee;
+    }
+
+    .weather-recommendations h4 {
+      margin: 0 0 8px 0;
+      color: #333;
+      font-size: 14px;
+    }
+
+    .recommendation-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .recommendation-list li {
+      margin: 5px 0;
+      color: #666;
+      font-size: 13px;
+      display: flex;
+      align-items: flex-start;
+      gap: 5px;
+    }
+
+    .risk-level {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 5px;
+    }
+
+    .risk-level.low {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .risk-level.medium {
+      background-color: #fff3e0;
+      color: #ef6c00;
+    }
+
+    .risk-level.high {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+
+    /* Add styles for datetime information */
+    .datetime-info {
+      margin: 10px 0;
+      padding: 10px;
+      background-color: rgba(33, 150, 243, 0.1);
+      border-radius: 6px;
+    }
+
+    .datetime-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 5px 0;
+    }
+
+    .datetime-item span:first-child {
+      color: #333;
+      font-weight: 500;
+    }
+
+    .datetime-item span:last-child {
+      color: #2196F3;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="weatherPanel">
+    <div class="weather-header">
+      <h3>🌤️ Weather Conditions</h3>
+      <span class="risk-level">Loading...</span>
+    </div>
+    <div class="datetime-info">
+      <div class="datetime-item">
+        <span>Date:</span>
+        <span id="currentDate">--</span>
+      </div>
+      <div class="datetime-item">
+        <span>Time:</span>
+        <span id="currentTime">--</span>
+      </div>
+      <div class="datetime-item">
+        <span>Day:</span>
+        <span id="currentDay">--</span>
+      </div>
+    </div>
+    <div class="weather-info">
+      <div class="weather-item">
+        <span>Temperature:</span>
+        <span>--°C</span>
+      </div>
+      <div class="weather-item">
+        <span>Feels Like:</span>
+        <span>--°C</span>
+      </div>
+      <div class="weather-item">
+        <span>Humidity:</span>
+        <span>--%</span>
+      </div>
+      <div class="weather-item">
+        <span>Wind Speed:</span>
+        <span>-- km/h</span>
+      </div>
+      <div class="weather-item">
+        <span>Visibility:</span>
+        <span>-- km</span>
+      </div>
+      <div class="weather-item">
+        <span>Conditions:</span>
+        <span>--</span>
+      </div>
+    </div>
+    <div class="weather-recommendations">
+      <h4>Safety Recommendations</h4>
+      <ul class="recommendation-list">
+        <li>Loading recommendations...</li>
+      </ul>
+    </div>
+  </div>
+  <button id="locationButton">📍 My Location</button>
+  <button id="simulateButton">🚨 Simulate Accident Location</button>
+  <button id="simulateHereButton">⚡ Simulate Accident Here</button>
+  <button id="sosButton">🆘 SOS Emergency</button>
+  <div id="statusMessage"></div>
+  <script>
+    mapboxgl.accessToken = 'pk.eyJ1IjoidGF0aGFnYXRhMzEiLCJhIjoiY203dGZpeG9qMHFhbzJqcjJkdHRydm8xeCJ9.B7l1dHUjVmPieh7VEBSd5w';
+
+    // Store the accident location for simulation
+    let simulatedAccidentLocation = null;
+    let isSimulatedLocation = false;
+
+    const map = new mapboxgl.Map({
+      container: 'map',
+      center: [78.5718, 17.5449], // BITS Pilani Hyderabad Campus coordinates
+      zoom: 14,
+      style: 'mapbox://styles/mapbox/streets-v11'
+    });
+
+    map.addControl(new mapboxgl.NavigationControl());
+
+    // Store markers for later removal
+    let hospitalMarkers = [];
+    let userMarker = null;
+    let accidentMarkers = [];
+
+    // Function to get user location with high accuracy
+    async function getUserLocation() {
+      return new Promise((resolve) => {
+        // Hardcoded coordinates for BITS Pilani Hyderabad Campus
+        const bitsLocation = {
+          latitude: 17.5449,
+          longitude: 78.5718,
+          accuracy: 10
+        };
+
+        console.log('Using BITS Pilani location:', bitsLocation);
+
+        // Add or update the user location marker
+        if (userMarker) userMarker.remove();
+        userMarker = new mapboxgl.Marker({
+          color: '#2196F3',
+          scale: 1.2
+        })
+        .setLngLat([bitsLocation.longitude, bitsLocation.latitude])
+        .setPopup(new mapboxgl.Popup().setHTML(`
+          <div class="location-popup">
+            <h3>📍 BITS Pilani Hyderabad Campus</h3>
+            <p>Lat: ${bitsLocation.latitude.toFixed(6)}</p>
+            <p>Lng: ${bitsLocation.longitude.toFixed(6)}</p>
+          </div>
+        `))
+        .addTo(map);
+
+        // Center map on BITS Pilani location
+        map.flyTo({
+          center: [bitsLocation.longitude, bitsLocation.latitude],
+          zoom: 14,
+          essential: true,
+          duration: 1000
+        });
+
+        resolve(bitsLocation);
+      });
+    }
+
+    // Function to update date and time
+    function updateDateTime() {
+      const now = new Date();
+      const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+      const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+      const dayOptions = { weekday: 'long' };
+
+      document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', dateOptions);
+      document.getElementById('currentTime').textContent = now.toLocaleTimeString('en-US', timeOptions);
+      document.getElementById('currentDay').textContent = now.toLocaleDateString('en-US', dayOptions);
+    }
+
+    // Update date and time every second
+    setInterval(updateDateTime, 1000);
+    updateDateTime(); // Initial update
+
+    // Function to update weather information
+    function updateWeatherInfo(weatherData, weatherAnalysis) {
+      try {
+        const weatherPanel = document.getElementById('weatherPanel');
+        const riskLevel = weatherPanel.querySelector('.risk-level');
+        const weatherInfo = weatherPanel.querySelector('.weather-info');
+        const recommendationList = weatherPanel.querySelector('.recommendation-list');
+
+        // Update risk level
+        riskLevel.textContent = weatherAnalysis.riskLevel;
+        riskLevel.className = `risk-level ${weatherAnalysis.riskLevel.toLowerCase()}`;
+
+        // Update weather information
+        weatherInfo.innerHTML = `
+          <div class="weather-item">
+            <span>Temperature:</span>
+            <span>${weatherData.temperature.toFixed(1)}°C</span>
+          </div>
+          <div class="weather-item">
+            <span>Feels Like:</span>
+            <span>${weatherData.feelsLike.toFixed(1)}°C</span>
+          </div>
+          <div class="weather-item">
+            <span>Humidity:</span>
+            <span>${weatherData.humidity}%</span>
+          </div>
+          <div class="weather-item">
+            <span>Wind Speed:</span>
+            <span>${weatherData.windSpeed} km/h</span>
+          </div>
+          <div class="weather-item">
+            <span>Visibility:</span>
+            <span>${(weatherData.visibility / 1000).toFixed(1)} km</span>
+          </div>
+          <div class="weather-item">
+            <span>Conditions:</span>
+            <span>${weatherData.description}</span>
+          </div>
+        `;
+
+        // Update recommendations
+        recommendationList.innerHTML = weatherAnalysis.weatherRecommendations
+          .map(rec => `<li>${rec}</li>`)
+          .join('');
+      } catch (error) {
+        console.error('Error updating weather info:', error);
+      }
+    }
+
+    // Function to update user location on map
+    async function updateUserLocation() {
+      const statusMessage = document.getElementById('statusMessage');
+      statusMessage.style.display = 'block';
+      statusMessage.textContent = '📍 Getting your location...';
+
+      try {
+        const { latitude, longitude } = await getUserLocation();
+        console.log('Updating location:', { latitude, longitude });
+
+        // Fetch nearby hospitals and weather data
+        const response = await fetch(`http://localhost:3000/api/hospitals?lat=${latitude}&lng=${longitude}`);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch data');
+        }
+
+        const data = await response.json();
+        console.log('Data received:', data);
+
+        if (data.success) {
+          // Update weather information
+          if (data.weather && data.weatherAnalysis) {
+            updateWeatherInfo(data.weather, data.weatherAnalysis);
+          }
+
+          // Update hospital markers
+          if (data.hospitals && Array.isArray(data.hospitals)) {
+            addHospitalMarkers(data.hospitals);
+            statusMessage.textContent = `✅ Found ${data.hospitals.length} nearby hospitals`;
+          } else {
+            statusMessage.textContent = '⚠️ No hospitals found within 20km';
+          }
+        } else {
+          throw new Error(data.error || 'Failed to fetch data');
+        }
+
+      } catch (error) {
+        console.error('Error updating location:', error);
+        statusMessage.textContent = `❌ Error: ${error.message}`;
+        statusMessage.style.backgroundColor = '#ff4444';
+        statusMessage.style.color = 'white';
+      } finally {
+        setTimeout(() => {
+          statusMessage.style.display = 'none';
+          statusMessage.style.backgroundColor = 'white';
+          statusMessage.style.color = 'black';
+        }, 5000);
+      }
+    }
+
+    // Function to get city name from coordinates
+    async function getCityName(latitude, longitude) {
+      try {
+        const response = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${mapboxgl.accessToken}`
+        );
+        const data = await response.json();
+        
+        if (data.features && data.features.length > 0) {
+          // Look for city in the features
+          const cityFeature = data.features.find(feature => 
+            feature.place_type.includes('place') || 
+            feature.place_type.includes('locality') ||
+            feature.place_type.includes('city')
+          );
+          
+          if (cityFeature) {
+            return cityFeature.text;
+          }
+        }
+        return 'Unknown Location';
+      } catch (error) {
+        console.error('Error getting city name:', error);
+        return 'Unknown Location';
+      }
+    }
+
+    // Function to clear existing hospital markers
+    function clearHospitalMarkers() {
+      hospitalMarkers.forEach(marker => marker.remove());
+      hospitalMarkers = [];
+    }
+
+    // Function to add hospital markers
+    function addHospitalMarkers(hospitals) {
+      clearHospitalMarkers();
+      
+      if (!hospitals || hospitals.length === 0) {
+        console.log('No hospitals to display');
+        return;
+      }
+
+      // Add hospital markers
+      hospitals.forEach(hospital => {
+        if (!hospital.coordinates || !Array.isArray(hospital.coordinates) || hospital.coordinates.length !== 2) {
+          console.error('Invalid hospital coordinates:', hospital);
+          return;
+        }
+
+        const el = document.createElement('div');
+        el.className = 'hospital-marker';
+        
+        // Extract the accident distance from the address
+        const accidentDistanceMatch = hospital.address ? hospital.address.match(/\(([\d.]+)km from accident prone area\)/) : null;
+        const accidentDistance = accidentDistanceMatch ? accidentDistanceMatch[1] : 'N/A';
+        
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat(hospital.coordinates)
+          .setPopup(new mapboxgl.Popup({ className: 'hospital-popup', closeButton: true }).setHTML(`
+            <div class="hospital-popup">
+              <h3>🏥 ${hospital.name || 'Unknown Hospital'}</h3>
+              <p class="distance">📏 Distance: ${hospital.distance ? hospital.distance.toFixed(2) : 'N/A'} km</p>
+              <p class="accident-distance">⚠️ Distance from accident-prone area: ${accidentDistance} km</p>
+              <button onclick="sendAlertToHospital('${hospital.name}', ${hospital.coordinates[0]}, ${hospital.coordinates[1]}, ${hospital.distance})" 
+                style="background: #ff4444; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; margin-top: 10px;">
+                🚨 Send Alert
+              </button>
+            </div>
+          `))
+          .addTo(map);
+        
+        hospitalMarkers.push(marker);
+      });
+
+      // Only fit bounds if we have valid markers
+      if (hospitalMarkers.length > 0) {
+        const bounds = new mapboxgl.LngLatBounds();
+        
+        // Extend bounds with each valid hospital marker
+        hospitalMarkers.forEach(marker => {
+          const lngLat = marker.getLngLat();
+          if (lngLat && typeof lngLat.lng === 'number' && typeof lngLat.lat === 'number') {
+            bounds.extend(lngLat);
+          }
+        });
+
+        // Only fit bounds if we have valid coordinates
+        if (!bounds.isEmpty()) {
+          map.fitBounds(bounds, { 
+            padding: { top: 150, bottom: 150, left: 150, right: 150 },
+            duration: 1500
+          });
+        }
+      }
+    }
+
+    // Function to clear accident markers
+    function clearAccidentMarkers() {
+      accidentMarkers.forEach(marker => marker.remove());
+      accidentMarkers = [];
+    }
+
+    // Function to add accident markers and make them clickable
+    function addAccidentMarkers(accidents) {
+      clearAccidentMarkers();
+      accidents.forEach(accident => {
+        const { latitude, longitude, severity, weather, roadSurface } = accident;
+        let markerColor;
+        switch (severity) {
+          case 1: markerColor = 'red'; break;
+          case 2: markerColor = 'orange'; break;
+          case 3: markerColor = 'yellow'; break;
+          default: markerColor = 'gray';
+        }
+
+        const el = document.createElement('div');
+        el.className = 'accident-marker';
+        el.style.backgroundColor = markerColor;
+
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat([longitude, latitude])
+          .setPopup(new mapboxgl.Popup().setHTML(`
+            <div class="hospital-popup">
+              <h3>🚨 Accident Site</h3>
+              <p>Severity: ${severity}</p>
+              <p>Weather: ${weather}</p>
+              <p>Road Surface: ${roadSurface}</p>
+              <button onclick="simulateLocation(${latitude}, ${longitude})" style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">
+                Simulate Location Here
+              </button>
+            </div>
+          `))
+          .addTo(map);
+
+        accidentMarkers.push(marker);
+      });
+    }
+
+    // Function to simulate accident at current location
+    async function simulateAccidentHere() {
+      const statusMessage = document.getElementById('statusMessage');
+      statusMessage.style.display = 'block';
+      statusMessage.textContent = '📍 Getting location...';
+
+      try {
+        // Get the current map center
+        const center = map.getCenter();
+        const simulatedLocation = {
+          latitude: center.lat,
+          longitude: center.lng
+        };
+
+        // Create a new accident marker at the current location
+        const el = document.createElement('div');
+        el.className = 'accident-marker';
+        el.style.backgroundColor = 'red'; // High severity for immediate attention
+
+        // Remove existing accident marker at this location if any
+        accidentMarkers = accidentMarkers.filter(marker => {
+          const pos = marker.getLngLat();
+          if (pos.lng === simulatedLocation.longitude && pos.lat === simulatedLocation.latitude) {
+            marker.remove();
+            return false;
+          }
+          return true;
+        });
+
+        // Add new accident marker
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat([simulatedLocation.longitude, simulatedLocation.latitude])
+          .setPopup(new mapboxgl.Popup().setHTML(`
+            <div class="hospital-popup">
+              <h3>🚨 Simulated Accident Site</h3>
+              <p>Severity: High</p>
+              <p>Weather: Current</p>
+              <p>Road Surface: Current</p>
+              <button onclick="simulateLocationWithoutFly(${simulatedLocation.latitude}, ${simulatedLocation.longitude})" 
+                style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">
+                Simulate Location Here
+              </button>
+            </div>
+          `))
+          .addTo(map);
+
+        accidentMarkers.push(marker);
+
+        // Fetch data for the simulated location without moving the map
+        await fetchLocationData(simulatedLocation.latitude, simulatedLocation.longitude);
+        
+        statusMessage.textContent = '✅ Accident simulated at current location';
+        setTimeout(() => {
+          statusMessage.style.display = 'none';
+        }, 3000);
+
+      } catch (error) {
+        console.error('Simulation Error:', error);
+        statusMessage.textContent = '❌ Error: ' + error.message;
+        setTimeout(() => {
+          statusMessage.style.display = 'none';
+        }, 5000);
+      }
+    }
+
+    // Function to fetch location data without moving the map
+    async function fetchLocationData(latitude, longitude) {
+      try {
+        const response = await fetch(`http://localhost:3000/api/hospitals?lat=${latitude}&lng=${longitude}`);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch data');
+        }
+
+        const data = await response.json();
+        console.log('Data received:', data);
+
+        if (data.success) {
+          // Update weather information
+          if (data.weather && data.weatherAnalysis) {
+            updateWeatherInfo(data.weather, data.weatherAnalysis);
+          }
+
+          // Update hospital markers
+          if (data.hospitals && Array.isArray(data.hospitals)) {
+            addHospitalMarkers(data.hospitals);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching location data:', error);
+        throw error;
+      }
+    }
+
+    // Function to simulate location without flying to it
+    window.simulateLocationWithoutFly = async function(latitude, longitude) {
+      simulatedAccidentLocation = { latitude, longitude };
+      isSimulatedLocation = true;
+      await fetchLocationData(latitude, longitude);
+    };
+
+    // Modify the existing simulateLocation function
+    window.simulateLocation = window.simulateLocationWithoutFly;
+
+    // Fetch accident data and add markers
+    fetch('http://localhost:3000/api/accidents')
+      .then(response => response.json())
+      .then(data => {
+        addAccidentMarkers(data);
+      })
+      .catch(error => console.error('Error fetching accident data:', error));
+
+    // Location button click handlers
+    document.getElementById('locationButton').addEventListener('click', () => {
+      isSimulatedLocation = false;
+      updateUserLocation();
+    });
+
+    document.getElementById('simulateButton').addEventListener('click', () => {
+      const statusMessage = document.getElementById('statusMessage');
+      statusMessage.style.display = 'block';
+      statusMessage.textContent = '🔍 Click on any accident marker on the map to simulate location';
+      setTimeout(() => {
+        statusMessage.style.display = 'none';
+      }, 5000);
+    });
+
+    // SOS Button functionality
+    document.getElementById('sosButton').addEventListener('click', async () => {
+      const statusMessage = document.getElementById('statusMessage');
+      statusMessage.style.display = 'block';
+      statusMessage.textContent = '🏥 Finding nearby hospitals...';
+
+      try {
+        // Use current map center instead of getUserLocation
+        const center = map.getCenter();
+        const currentLocation = {
+          latitude: center.lat,
+          longitude: center.lng
+        };
+
+        // Fetch hospitals for current location
+        const response = await fetch(`http://localhost:3000/api/hospitals?lat=${currentLocation.latitude}&lng=${currentLocation.longitude}`);
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to fetch hospitals');
+        }
+
+        if (!data.hospitals || !Array.isArray(data.hospitals)) {
+          throw new Error('Invalid hospital data received');
+        }
+
+        if (data.hospitals.length === 0) {
+          statusMessage.textContent = '⚠️ No hospitals found within 20km';
+        } else {
+          // Add hospital markers
+          addHospitalMarkers(data.hospitals);
+          statusMessage.textContent = `✅ Found ${data.hospitals.length} nearby hospitals! Click markers to send alerts.`;
+        }
+
+        setTimeout(() => {
+          statusMessage.style.display = 'none';
+        }, 5000);
+
+      } catch (error) {
+        console.error('SOS Error:', error);
+        statusMessage.textContent = '❌ Error: ' + error.message;
+        setTimeout(() => {
+          statusMessage.style.display = 'none';
+        }, 5000);
+      }
+    });
+
+    // Add click handler for simulate here button
+    document.getElementById('simulateHereButton').addEventListener('click', simulateAccidentHere);
+
+    // Initialize map with user's location
+    window.addEventListener('load', async () => {
+      try {
+        await updateUserLocation();
+      } catch (error) {
+        console.error('Initial location error:', error);
+        const statusMessage = document.getElementById('statusMessage');
+        statusMessage.style.display = 'block';
+        statusMessage.textContent = '❌ Error: ' + error.message;
+        statusMessage.style.backgroundColor = '#ff4444';
+        statusMessage.style.color = 'white';
+        
+        setTimeout(() => {
+          statusMessage.style.display = 'none';
+          statusMessage.style.backgroundColor = 'white';
+          statusMessage.style.color = 'black';
+        }, 5000);
+      }
+    });
+
+    // Function to send alert to a specific hospital
+    window.sendAlertToHospital = async function(hospitalName, longitude, latitude, distance) {
+      const statusMessage = document.getElementById('statusMessage');
+      statusMessage.style.display = 'block';
+      statusMessage.textContent = '🚨 Sending alert to ' + hospitalName;
+
+      try {
+        // Use current map center instead of getUserLocation
+        const center = map.getCenter();
+        const userLocation = {
+          latitude: center.lat,
+          longitude: center.lng
+        };
+        
+        console.log('Sending alert with data:', {
+          userLocation,
+          hospital: {
+            name: hospitalName,
+            coordinates: [longitude, latitude],
+            distance: distance
+          }
+        });
+
+        const response = await fetch('http://localhost:3000/api/emergency', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            userLocation,
+            hospital: {
+              name: hospitalName,
+              coordinates: [longitude, latitude],
+              distance: distance
+            }
+          })
+        });
+
+        const result = await response.json();
+        console.log('Server response:', result);
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to send alert');
+        }
+
+        if (result.success) {
+          statusMessage.textContent = `✅ Alert sent to ${hospitalName}!`;
+          statusMessage.style.backgroundColor = '#4CAF50';
+          statusMessage.style.color = 'white';
+          
+          // Add visual feedback - make the hospital marker pulse
+          const marker = hospitalMarkers.find(m => 
+            m.getLngLat().lng === longitude && 
+            m.getLngLat().lat === latitude
+          );
+          if (marker) {
+            const el = marker.getElement();
+            el.style.animation = 'pulse 1s ease-out';
+            el.style.animationIterationCount = '3';
+          }
+        } else {
+          throw new Error(result.error || 'Failed to send alert');
+        }
+
+      } catch (error) {
+        console.error('Alert Error:', error);
+        statusMessage.textContent = '❌ Error sending alert: ' + error.message;
+        statusMessage.style.backgroundColor = '#ff4444';
+        statusMessage.style.color = 'white';
+      }
+
+      // Keep the message visible longer
+      setTimeout(() => {
+        statusMessage.style.display = 'none';
+        statusMessage.style.backgroundColor = 'white';
+        statusMessage.style.color = 'black';
+      }, 5000);
+    };
+  </script>
+</body>
+</html>
