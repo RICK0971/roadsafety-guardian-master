@@ -4,6 +4,7 @@ const cors = require('cors');
 const fs = require('fs');
 const { parse } = require('csv-parse');
 
+
 const app = express();
 const PORT = 3000;
 
@@ -147,7 +148,7 @@ Promise.all([readAccidentsData(), readHospitalsData()])
     }
 
     // Function to analyze weather impact on accidents
-    function analyzeWeatherImpact(accidents, weather) {
+    function analyzeWeatherImpact(accidents, weather, accidentWeather = null) {
       const weatherConditions = accidents.map(acc => acc.weather);
       const currentWeather = weather.weather.toLowerCase();
       
@@ -155,7 +156,7 @@ Promise.all([readAccidentsData(), readHospitalsData()])
       const similarAccidents = weatherConditions.filter(w => 
         w.toLowerCase().includes(currentWeather)
       ).length;
-
+    
       // Calculate risk level based on weather and accident history
       let riskLevel = 'LOW';
       if (similarAccidents > 5) {
@@ -163,16 +164,16 @@ Promise.all([readAccidentsData(), readHospitalsData()])
       } else if (similarAccidents > 2) {
         riskLevel = 'MEDIUM';
       }
-
+    
       return {
         riskLevel,
         similarAccidents,
-        weatherRecommendations: generateWeatherRecommendations(weather, riskLevel)
+        weatherRecommendations: generateWeatherRecommendations(weather, riskLevel, accidentWeather)
       };
     }
 
     // Function to generate weather-based safety recommendations
-    function generateWeatherRecommendations(weather, riskLevel) {
+    function generateWeatherRecommendations(weather, riskLevel, accidentWeather = null) {
       const recommendations = [];
       
       // Temperature-based recommendations
@@ -181,9 +182,10 @@ Promise.all([readAccidentsData(), readHospitalsData()])
       } else if (weather.temperature > 35) {
         recommendations.push('🌡️ High temperature. Ensure proper vehicle cooling.');
       }
-
-      // Weather condition recommendations
-      switch(weather.weather.toLowerCase()) {
+    
+      // Use accident weather if provided, otherwise fall back to current weather
+      const weatherCondition = accidentWeather ? accidentWeather.toLowerCase() : weather.weather.toLowerCase();
+      switch(weatherCondition) {
         case 'rain':
           recommendations.push('🌧️ Wet conditions. Maintain safe distance and reduce speed.');
           break;
@@ -196,28 +198,41 @@ Promise.all([readAccidentsData(), readHospitalsData()])
         case 'thunderstorm':
           recommendations.push('⛈️ Thunderstorm conditions. Consider delaying travel if possible.');
           break;
+        case 'haze':
+          recommendations.push('🌫️ Hazy conditions. Use headlights and maintain extra caution.');
+          break;
+        case 'windy':
+          recommendations.push('💨 Windy conditions. Keep a firm grip on the steering wheel.');
+          break;
+        case 'clear':
+          recommendations.push('☀️ Clear conditions. Ensure sunglasses for glare protection.');
+          break;
       }
-
+    
       // Wind speed recommendations
       if (weather.windSpeed > 20) {
         recommendations.push('💨 Strong winds. Keep firm grip on steering wheel.');
       }
-
+    
       // Visibility recommendations
-      if (weather.visibility < 1000) {
-        recommendations.push('👁️ Low visibility. Use headlights and maintain extra caution.');
+      if (weather.visibility < 5000) {
+        recommendations.push('👁️ Reduced visibility. Use headlights and maintain extra caution.');
       }
-
+    
       // Risk level specific recommendations
       if (riskLevel === 'HIGH') {
         recommendations.push('🚨 High accident risk in current conditions. Maximum caution required.');
       } else if (riskLevel === 'MEDIUM') {
         recommendations.push('⚠️ Moderate accident risk. Exercise increased caution.');
       }
-
+    
+      // Default recommendation if no specific conditions are met
+      if (recommendations.length === 0) {
+        recommendations.push('✅ Conditions are normal. Drive safely and stay alert.');
+      }
+    
       return recommendations;
     }
-
     // Add new weather endpoint
     app.get('/api/weather', async (req, res) => {
       try {
@@ -254,7 +269,7 @@ Promise.all([readAccidentsData(), readHospitalsData()])
     // Modify the existing hospitals endpoint to include weather data
     app.get('/api/hospitals', async (req, res) => {
       try {
-        const { lat, lng } = req.query;
+        const { lat, lng, accidentWeather } = req.query;
         
         if (!lat || !lng) {
           return res.status(400).json({ 
@@ -262,11 +277,11 @@ Promise.all([readAccidentsData(), readHospitalsData()])
             error: "Latitude and longitude are required" 
           });
         }
-
+    
         // Get weather data
         const weatherData = await getWeatherData(lat, lng);
-        const weatherAnalysis = analyzeWeatherImpact(accidents, weatherData);
-
+        const weatherAnalysis = analyzeWeatherImpact(accidents, weatherData, accidentWeather || null);
+    
         // Calculate distances and filter hospitals within 20km
         const hospitalsWithDistance = hospitals.map(hospital => {
           const distance = calculateDistance(
@@ -282,7 +297,7 @@ Promise.all([readAccidentsData(), readHospitalsData()])
             17.5449,
             78.5718
           );
-
+    
           return {
             name: hospital.name,
             coordinates: [hospital.longitude, hospital.latitude],
@@ -292,7 +307,7 @@ Promise.all([readAccidentsData(), readHospitalsData()])
         })
         .filter(hospital => hospital.distance <= 20)
         .sort((a, b) => a.distance - b.distance);
-
+    
         res.json({ 
           success: true,
           hospitals: hospitalsWithDistance,
