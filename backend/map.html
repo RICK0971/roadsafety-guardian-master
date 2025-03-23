@@ -106,7 +106,7 @@
       transform: translateY(-2px);
       box-shadow: 0 4px 8px rgba(0,0,0,0.3);
     }
-    
+
     .accident-marker {
       width: 20px;
       height: 20px;
@@ -400,52 +400,56 @@
 
     // Function to update weather information
     function updateWeatherInfo(weatherData, weatherAnalysis) {
-      try {
-        const weatherPanel = document.getElementById('weatherPanel');
-        const riskLevel = weatherPanel.querySelector('.risk-level');
-        const weatherInfo = weatherPanel.querySelector('.weather-info');
-        const recommendationList = weatherPanel.querySelector('.recommendation-list');
+  try {
+    const weatherPanel = document.getElementById('weatherPanel');
+    const riskLevel = weatherPanel.querySelector('.risk-level');
+    const weatherInfo = weatherPanel.querySelector('.weather-info');
+    const recommendationList = weatherPanel.querySelector('.recommendation-list');
 
-        // Update risk level
-        riskLevel.textContent = weatherAnalysis.riskLevel;
-        riskLevel.className = `risk-level ${weatherAnalysis.riskLevel.toLowerCase()}`;
+    // Update risk level
+    riskLevel.textContent = weatherAnalysis.riskLevel;
+    riskLevel.className = `risk-level ${weatherAnalysis.riskLevel.toLowerCase()}`;
 
-        // Update weather information
-        weatherInfo.innerHTML = `
-          <div class="weather-item">
-            <span>Temperature:</span>
-            <span>${weatherData.temperature.toFixed(1)}°C</span>
-          </div>
-          <div class="weather-item">
-            <span>Feels Like:</span>
-            <span>${weatherData.feelsLike.toFixed(1)}°C</span>
-          </div>
-          <div class="weather-item">
-            <span>Humidity:</span>
-            <span>${weatherData.humidity}%</span>
-          </div>
-          <div class="weather-item">
-            <span>Wind Speed:</span>
-            <span>${weatherData.windSpeed} km/h</span>
-          </div>
-          <div class="weather-item">
-            <span>Visibility:</span>
-            <span>${(weatherData.visibility / 1000).toFixed(1)} km</span>
-          </div>
-          <div class="weather-item">
-            <span>Conditions:</span>
-            <span>${weatherData.description}</span>
-          </div>
-        `;
+    // Update weather information
+    weatherInfo.innerHTML = `
+      <div class="weather-item">
+        <span>Temperature:</span>
+        <span>${weatherData.temperature.toFixed(1)}°C</span>
+      </div>
+      <div class="weather-item">
+        <span>Feels Like:</span>
+        <span>${weatherData.feelsLike.toFixed(1)}°C</span>
+      </div>
+      <div class="weather-item">
+        <span>Humidity:</span>
+        <span>${weatherData.humidity}%</span>
+      </div>
+      <div class="weather-item">
+        <span>Wind Speed:</span>
+        <span>${weatherData.windSpeed} km/h</span>
+      </div>
+      <div class="weather-item">
+        <span>Visibility:</span>
+        <span>${(weatherData.visibility / 1000).toFixed(1)} km</span>
+      </div>
+      <div class="weather-item">
+        <span>Conditions:</span>
+        <span>${weatherData.description}</span>
+      </div>
+    `;
 
-        // Update recommendations
-        recommendationList.innerHTML = weatherAnalysis.weatherRecommendations
-          .map(rec => `<li>${rec}</li>`)
-          .join('');
-      } catch (error) {
-        console.error('Error updating weather info:', error);
-      }
+    // Update recommendations, ensuring the list is cleared if empty
+    if (weatherAnalysis.weatherRecommendations && weatherAnalysis.weatherRecommendations.length > 0) {
+      recommendationList.innerHTML = weatherAnalysis.weatherRecommendations
+        .map(rec => `<li>${rec}</li>`)
+        .join('');
+    } else {
+      recommendationList.innerHTML = '<li>No specific recommendations available.</li>';
     }
+  } catch (error) {
+    console.error('Error updating weather info:', error);
+  }
+}
 
     // Function to update user location on map
     async function updateUserLocation() {
@@ -602,39 +606,40 @@
 
     // Function to add accident markers and make them clickable
     function addAccidentMarkers(accidents) {
-      clearAccidentMarkers();
-      accidents.forEach(accident => {
-        const { latitude, longitude, severity, weather, roadSurface } = accident;
-        let markerColor;
-        switch (severity) {
-          case 1: markerColor = 'red'; break;
-          case 2: markerColor = 'orange'; break;
-          case 3: markerColor = 'yellow'; break;
-          default: markerColor = 'gray';
-        }
-
-        const el = document.createElement('div');
-        el.className = 'accident-marker';
-        el.style.backgroundColor = markerColor;
-
-        const marker = new mapboxgl.Marker(el)
-          .setLngLat([longitude, latitude])
-          .setPopup(new mapboxgl.Popup().setHTML(`
-            <div class="hospital-popup">
-              <h3>🚨 Accident Site</h3>
-              <p>Severity: ${severity}</p>
-              <p>Weather: ${weather}</p>
-              <p>Road Surface: ${roadSurface}</p>
-              <button onclick="simulateLocation(${latitude}, ${longitude})" style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">
-                Simulate Location Here
-              </button>
-            </div>
-          `))
-          .addTo(map);
-
-        accidentMarkers.push(marker);
-      });
+  clearAccidentMarkers();
+  accidents.forEach(accident => {
+    const { latitude, longitude, severity, weather, roadSurface } = accident;
+    let markerColor;
+    switch (severity) {
+      case 1: markerColor = 'red'; break;
+      case 2: markerColor = 'orange'; break;
+      case 3: markerColor = 'yellow'; break;
+      default: markerColor = 'gray';
     }
+
+    const el = document.createElement('div');
+    el.className = 'accident-marker';
+    el.style.backgroundColor = markerColor;
+
+    const marker = new mapboxgl.Marker(el)
+      .setLngLat([longitude, latitude])
+      .setPopup(new mapboxgl.Popup().setHTML(`
+        <div class="hospital-popup">
+          <h3>🚨 Accident Site</h3>
+          <p>Severity: ${severity}</p>
+          <p>Weather: ${weather}</p>
+          <p>Road Surface: ${roadSurface}</p>
+          <button onclick="simulateLocation(${latitude}, ${longitude}, '${weather}')" style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">
+            Simulate Location Here
+          </button>
+        </div>
+      `))
+      .addTo(map);
+
+    accidentMarkers.push(marker);
+  });
+}
+    
 
     // Function to simulate accident at current location
     async function simulateAccidentHere() {
